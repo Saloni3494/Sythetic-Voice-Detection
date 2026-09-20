@@ -7,52 +7,57 @@ import { Play, Pause, FastForward, Rewind } from "lucide-react"
 
 interface WaveformAnalyzerProps {
   metadata: AudioMetadata
+  audioFile?: File | null
   segments?: SyntheticSegment[]
   onAnalyze?: () => void
   isAnalyzing?: boolean
   isComplete?: boolean
 }
 
-export function WaveformAnalyzer({ metadata, segments = [], onAnalyze, isAnalyzing, isComplete }: WaveformAnalyzerProps) {
+export function WaveformAnalyzer({ metadata, audioFile, segments = [], onAnalyze, isAnalyzing, isComplete }: WaveformAnalyzerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [hoverX, setHoverX] = useState<number | null>(null)
   
   const waveformRef = useRef<HTMLDivElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
   
   // Generate stable random waveform data
   const [waveData] = useState(() => Array.from({ length: 120 }, () => Math.random() * 0.8 + 0.1))
 
-  // Handle mock playback
+  // Handle actual playback
   useEffect(() => {
-    let animationFrame: number
-    if (isPlaying) {
-      let start = performance.now() - (progress * metadata.duration * 1000)
-      
-      const updateProgress = (time: number) => {
-        const elapsed = time - start
-        const newProgress = elapsed / (metadata.duration * 1000)
-        
-        if (newProgress >= 1) {
-          setProgress(0)
-          setIsPlaying(false)
-        } else {
-          setProgress(newProgress)
-          animationFrame = requestAnimationFrame(updateProgress)
-        }
-      }
-      animationFrame = requestAnimationFrame(updateProgress)
+    if (audioFile && audioRef.current) {
+      const url = URL.createObjectURL(audioFile)
+      audioRef.current.src = url
+      return () => URL.revokeObjectURL(url)
     }
-    return () => cancelAnimationFrame(animationFrame)
-  }, [isPlaying, progress, metadata.duration])
+  }, [audioFile])
 
-  const togglePlayback = () => setIsPlaying(!isPlaying)
+  const togglePlayback = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause()
+      } else {
+        audioRef.current.play()
+      }
+      setIsPlaying(!isPlaying)
+    }
+  }
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current && metadata.duration > 0) {
+      setProgress(audioRef.current.currentTime / metadata.duration)
+    }
+  }
 
   const handleWaveformClick = (e: React.MouseEvent) => {
-    if (!waveformRef.current) return
+    if (!waveformRef.current || !audioRef.current || metadata.duration <= 0) return
     const rect = waveformRef.current.getBoundingClientRect()
     const x = e.clientX - rect.left
     const newProgress = Math.max(0, Math.min(1, x / rect.width))
+    
+    audioRef.current.currentTime = newProgress * metadata.duration
     setProgress(newProgress)
   }
 
@@ -75,6 +80,13 @@ export function WaveformAnalyzer({ metadata, segments = [], onAnalyze, isAnalyzi
 
   return (
     <div className="w-full">
+      <audio 
+        ref={audioRef} 
+        className="hidden" 
+        onTimeUpdate={handleTimeUpdate} 
+        onEnded={() => setIsPlaying(false)} 
+      />
+      
       <div className="mb-8">
         <p className="font-mono text-xs tracking-[0.3em] text-muted-foreground mb-4">02 — SIGNAL</p>
         <h2 className="font-sans text-4xl md:text-5xl font-light italic">AUDIO SIGNAL</h2>

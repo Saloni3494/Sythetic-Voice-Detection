@@ -1,16 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { motion } from "framer-motion"
 import { UploadCloud, Mic, FileAudio } from "lucide-react"
 import { AudioMetadata } from "@/lib/mock-data"
 
 interface AudioUploadProps {
-  onUpload: (metadata: AudioMetadata) => void
+  onUpload: (metadata: AudioMetadata, file: File) => void
 }
 
 export function AudioUpload({ onUpload }: AudioUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -24,19 +25,36 @@ export function AudioUpload({ onUpload }: AudioUploadProps) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-    simulateUpload()
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFile(e.dataTransfer.files[0])
+    }
   }
 
-  const simulateUpload = () => {
-    // In a real app, we would process the file here. 
-    // We use mock data for the prototype.
-    onUpload({
-      filename: "suspect_recording_004.wav",
-      duration: 12.84,
-      sampleRate: 16000,
-      channels: 1,
-      format: "WAV",
-    })
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFile(e.target.files[0])
+    }
+  }
+
+  const handleClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const processFile = (file: File) => {
+    const format = file.name.split('.').pop()?.toUpperCase() || "AUDIO"
+    
+    const url = URL.createObjectURL(file)
+    const audio = new Audio(url)
+    
+    audio.onloadedmetadata = () => {
+      onUpload({
+        filename: file.name,
+        duration: Number(audio.duration.toFixed(2)),
+        sampleRate: 16000,
+        channels: 1,
+        format: format,
+      }, file)
+    }
   }
 
   return (
@@ -51,11 +69,18 @@ export function AudioUpload({ onUpload }: AudioUploadProps) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            className="hidden" 
+            accept="audio/*" 
+          />
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            onClick={simulateUpload}
+            onClick={handleClick}
             className={`relative flex flex-col items-center justify-center py-20 px-8 border border-white/10 cursor-pointer transition-all duration-500 overflow-hidden ${
               isDragging ? "bg-white/5 border-blue-500/50" : "bg-white/[0.01] hover:bg-white/[0.03]"
             }`}
@@ -87,7 +112,7 @@ export function AudioUpload({ onUpload }: AudioUploadProps) {
 
         <div className="flex flex-col gap-6">
           <div 
-            onClick={simulateUpload}
+            onClick={handleClick}
             className="flex-1 flex flex-col items-center justify-center p-8 border border-white/10 bg-white/[0.01] hover:bg-white/[0.03] cursor-pointer transition-all duration-500 group relative"
           >
              {/* Corner brackets */}

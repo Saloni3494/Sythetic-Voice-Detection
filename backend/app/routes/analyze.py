@@ -35,13 +35,14 @@ async def analyze_audio(file: UploadFile = File(...)):
             
         # Run prediction
         try:
-            is_ai_generated, spoof_probability = predict(temp_file_path, str(WEIGHTS_PATH))
+            is_ai_generated, spoof_probability, segments = predict(temp_file_path, str(WEIGHTS_PATH))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Model inference failed: {str(e)}")
             
         return {
             "is_ai_generated": is_ai_generated,
-            "spoof_probability": spoof_probability
+            "spoof_probability": spoof_probability,
+            "segments": segments
         }
         
     finally:

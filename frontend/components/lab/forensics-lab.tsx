@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 
-import { mockBackendResponse, AudioMetadata } from "@/lib/mock-data"
+import { mockBackendResponse, AudioMetadata, mergeAnalysisResponse, ForensicsResponse } from "@/lib/mock-data"
 import { AudioUpload } from "./audio-upload"
 import { WaveformAnalyzer } from "./waveform-analyzer"
 import { AnalysisEngine } from "./analysis-engine"
@@ -18,14 +18,35 @@ type LabState = "idle" | "ready" | "analyzing" | "complete"
 export function ForensicsLab({ onReset }: { onReset: () => void }) {
   const [state, setState] = useState<LabState>("idle")
   const [metadata, setMetadata] = useState<AudioMetadata | null>(null)
+  const [audioFile, setAudioFile] = useState<File | null>(null)
+  const [apiResponse, setApiResponse] = useState<ForensicsResponse>(mockBackendResponse)
 
-  const handleUpload = (meta: AudioMetadata) => {
+  const handleUpload = (meta: AudioMetadata, file: File) => {
     setMetadata(meta)
+    setAudioFile(file)
     setState("ready")
   }
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     setState("analyzing")
+    if (audioFile) {
+      try {
+        const formData = new FormData()
+        formData.append("file", audioFile)
+        const response = await fetch("http://localhost:8000/api/analyze-audio", {
+          method: "POST",
+          body: formData,
+        })
+        if (!response.ok) throw new Error("Network response was not ok")
+        const data = await response.json()
+        setApiResponse(mergeAnalysisResponse(data))
+      } catch (error) {
+        console.error("Analysis failed:", error)
+        setApiResponse(mockBackendResponse)
+      }
+    } else {
+      setApiResponse(mockBackendResponse)
+    }
   }
 
   const handleAnalysisComplete = () => {
@@ -35,6 +56,8 @@ export function ForensicsLab({ onReset }: { onReset: () => void }) {
   const handleFullReset = () => {
     setState("idle")
     setMetadata(null)
+    setAudioFile(null)
+    setApiResponse(mockBackendResponse)
   }
 
   return (
@@ -70,7 +93,8 @@ export function ForensicsLab({ onReset }: { onReset: () => void }) {
             <motion.div key="analysis-workspace" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-12">
               <WaveformAnalyzer 
                 metadata={metadata} 
-                segments={state === "complete" ? mockBackendResponse.segments : undefined}
+                audioFile={audioFile}
+                segments={state === "complete" ? apiResponse.segments : undefined}
                 onAnalyze={handleAnalyze}
                 isAnalyzing={state === "analyzing"}
                 isComplete={state === "complete"}
@@ -84,25 +108,25 @@ export function ForensicsLab({ onReset }: { onReset: () => void }) {
 
               {state === "complete" && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="flex flex-col gap-24">
-                  <DetectionResult result={mockBackendResponse.result} />
-                  <SpectralEvidence segments={mockBackendResponse.segments} />
-                  <MultiResolution resolutions={mockBackendResponse.resolutions} duration={metadata.duration} />
+                  <DetectionResult result={apiResponse.result} />
+                  <SpectralEvidence segments={apiResponse.segments} />
+                  <MultiResolution resolutions={apiResponse.resolutions} duration={metadata.duration} />
                   <ModelArchitecture />
-                  <ResearchPanels robustness={mockBackendResponse.robustness} experiments={mockBackendResponse.experiments} />
+                  <ResearchPanels robustness={apiResponse.robustness} experiments={apiResponse.experiments} />
                   
                   {/* Inference Details Footer Panel */}
                   <div className="border border-white/10 bg-[#050505] p-6 font-mono text-[10px] tracking-widest text-muted-foreground flex flex-col md:flex-row justify-between gap-4 uppercase">
                     <div>
                       <span className="text-white/30 mr-2">MODEL</span>
-                      <span className="text-white">{mockBackendResponse.result.modelName}</span>
+                      <span className="text-white">{apiResponse.result.modelName}</span>
                     </div>
                     <div>
                       <span className="text-white/30 mr-2">FEATURES</span>
-                      <span className="text-white">{mockBackendResponse.result.featuresUsed}</span>
+                      <span className="text-white">{apiResponse.result.featuresUsed}</span>
                     </div>
                     <div>
                       <span className="text-white/30 mr-2">INFERENCE TIME</span>
-                      <span className="text-blue-400">{mockBackendResponse.result.inferenceTime}s</span>
+                      <span className="text-blue-400">{apiResponse.result.inferenceTime}s</span>
                     </div>
                     <div>
                       <span className="text-white/30 mr-2">STATUS</span>

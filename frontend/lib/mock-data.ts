@@ -157,3 +157,19 @@ export const mockBackendResponse: ForensicsResponse = {
     { id: "e8", model: "ROBUST CNN", eer: 1.1, rocAuc: 99.9, f1: 99.0, accuracy: 99.1, rangeEer: 1.8, localizationF1: 97.5 },
   ]
 }
+
+export function mergeAnalysisResponse(apiResult: any, baseMock: ForensicsResponse = mockBackendResponse): ForensicsResponse {
+  const spoofPercent = apiResult.spoof_probability * 100;
+  const humanPercent = 100 - spoofPercent;
+  
+  return {
+    ...baseMock,
+    segments: apiResult.segments || [],
+    result: {
+      ...baseMock.result,
+      label: apiResult.is_ai_generated ? "SYNTHETIC" : "HUMAN",
+      syntheticProbability: Number(spoofPercent.toFixed(1)),
+      humanProbability: Number(humanPercent.toFixed(1)),
+    }
+  };
+}
