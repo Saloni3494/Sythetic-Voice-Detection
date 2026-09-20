@@ -1,0 +1,53 @@
+{
+  "PS_ROOT": "D:\\PartialSpoofExtract",
+  "OUTPUT_ROOT": "./runs/partialspoof_v2",
+  "CACHE_ROOT": "./cache/partialspoof_v2",
+  "SEED": 42,
+  "DETERMINISTIC": false,
+  "DEBUG_MODE": false,
+  "DEBUG_FILES_PER_SPLIT": 32,
+  "DEBUG_TRAIN_STEPS": 8,
+  "FAIL_ON_AUDIT_ERROR": true,
+  "BATCH_SIZE": 4,
+  "NUM_WORKERS": 0,
+  "PIN_MEMORY": true,
+  "PERSISTENT_WORKERS": false,
+  "PREFETCH_FACTOR": 2,
+  "EPOCHS": 30,
+  "LR": 0.0002,
+  "WEIGHT_DECAY": 0.0001,
+  "PATIENCE": 6,
+  "GRAD_ACCUM_STEPS": 1,
+  "GRAD_CLIP": 5.0,
+  "TARGET_SR": 16000,
+  "ALLOW_RESAMPLE": true,
+  "N_FFT": 512,
+  "WIN_MS": 20.0,
+  "HOP_MS": 10.0,
+  "N_MELS": 80,
+  "LFCC_FILTERS": 80,
+  "LFCC_COEFFS": 40,
+  "CQT_BINS_PER_OCTAVE": 12,
+  "CQT_N_BINS": 84,
+  "CQT_FMIN": 20.0,
+  "BASE_CHANNELS": 32,
+  "EMBED_DIM": 128,
+  "DROPOUT": 0.2,
+  "TRAIN_CROP_SEC": 4.0,
+  "TRAIN_CROP_MODE": "label_aware",
+  "DEFAULT_FEATURES": [
+    "logmel"
+  ],
+  "RESOLUTIONS_MS": [
+    20,
+    40,
+    80,
+    160,
+    320,
+    640
+  ],
+  "ALLOW_EVAL": false,
+  "feature_names": [
+    "logmel"
+  ]
+}
