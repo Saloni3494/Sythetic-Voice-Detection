@@ -1,24 +1,24 @@
 {
   "PS_ROOT": "D:\\PartialSpoofExtract",
-  "OUTPUT_ROOT": "./runs/partialspoof_v2",
+  "OUTPUT_ROOT": "./runs/partialspoof_v3",
   "CACHE_ROOT": "./cache/partialspoof_v2",
   "SEED": 42,
   "DETERMINISTIC": false,
   "DEBUG_MODE": false,
   "DEBUG_FILES_PER_SPLIT": 32,
-  "DEBUG_TRAIN_STEPS": 8,
   "FAIL_ON_AUDIT_ERROR": true,
-  "BATCH_SIZE": 4,
+  "BATCH_SIZE": 16,
+  "EVAL_BATCH_SIZE": 32,
   "NUM_WORKERS": 0,
   "PIN_MEMORY": true,
-  "PERSISTENT_WORKERS": false,
-  "PREFETCH_FACTOR": 2,
-  "EPOCHS": 30,
+  "EPOCHS": 20,
+  "SAMPLES_PER_EPOCH": 10000,
   "LR": 0.0002,
   "WEIGHT_DECAY": 0.0001,
-  "PATIENCE": 6,
+  "PATIENCE": 5,
   "GRAD_ACCUM_STEPS": 1,
   "GRAD_CLIP": 5.0,
+  "IMBALANCE_MODE": "sampler",
   "TARGET_SR": 16000,
   "ALLOW_RESAMPLE": true,
   "N_FFT": 512,
@@ -34,7 +34,9 @@
   "EMBED_DIM": 128,
   "DROPOUT": 0.2,
   "TRAIN_CROP_SEC": 4.0,
-  "TRAIN_CROP_MODE": "label_aware",
+  "SPOOF_CROP_PROB": 0.7,
+  "MIN_SPOOF_FRAMES_IN_CROP": 5,
+  "DEV_EPOCH_PER_CLASS": 1500,
   "DEFAULT_FEATURES": [
     "logmel"
   ],
@@ -49,5 +51,9 @@
   "ALLOW_EVAL": false,
   "feature_names": [
     "logmel"
-  ]
+  ],
+  "imbalance_mode_used": "sampler",
+  "crop_frames": 400,
+  "samples_per_epoch_used": 10000,
+  "spoof_value": 0
 }

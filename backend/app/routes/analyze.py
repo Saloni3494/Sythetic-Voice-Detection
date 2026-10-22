@@ -11,6 +11,9 @@ if str(backend_dir) not in sys.path:
     sys.path.append(str(backend_dir))
 
 from ai_engine.inference import predict
+from app.database.mongodb import audio_analysis_collection
+from datetime import datetime
+from app.services.audio_service import get_audio_metadata
 
 router = APIRouter()
 
@@ -36,9 +39,24 @@ async def analyze_audio(file: UploadFile = File(...)):
         # Run prediction
         try:
             is_ai_generated, spoof_probability, segments = predict(temp_file_path, str(WEIGHTS_PATH))
+            audio_metadata = get_audio_metadata(temp_file_path)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Model inference failed: {str(e)}")
             
+        # Save analysis to MongoDB
+        try:
+            analysis_document = {
+                "original_filename": file.filename,
+                "audio_info": audio_metadata,
+                "prediction": "synthetic" if is_ai_generated else "human",
+                "confidence": spoof_probability,
+                "segments": segments,
+                "created_at": datetime.utcnow()
+            }
+            audio_analysis_collection.insert_one(analysis_document)
+        except Exception as e:
+            print(f"Warning: Failed to save to MongoDB: {e}")
+
         return {
             "is_ai_generated": is_ai_generated,
             "spoof_probability": spoof_probability,
