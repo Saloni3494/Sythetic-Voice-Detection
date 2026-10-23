@@ -159,17 +159,25 @@ export const mockBackendResponse: ForensicsResponse = {
 }
 
 export function mergeAnalysisResponse(apiResult: any, baseMock: ForensicsResponse = mockBackendResponse): ForensicsResponse {
-  const spoofPercent = apiResult.spoof_probability * 100;
+  const isSynthetic = Boolean(apiResult.is_ai_generated);
+  const spoofPercent = Number(apiResult.spoof_probability) * 100;
   const humanPercent = 100 - spoofPercent;
+  const segments = isSynthetic ? (apiResult.segments || []) : [];
   
   return {
     ...baseMock,
-    segments: apiResult.segments || [],
+    segments: segments,
+    resolutions: isSynthetic 
+      ? baseMock.resolutions 
+      : baseMock.resolutions.map(r => ({ ...r, totalDetected: 0, segments: [] })),
     result: {
       ...baseMock.result,
-      label: apiResult.is_ai_generated ? "SYNTHETIC" : "HUMAN",
+      label: isSynthetic ? "SYNTHETIC" : "HUMAN",
       syntheticProbability: Number(spoofPercent.toFixed(1)),
       humanProbability: Number(humanPercent.toFixed(1)),
+      spectralAnomaly: isSynthetic,
+      temporalConsistency: isSynthetic ? "ANOMALOUS" : "NATURAL",
+      modelActivation: isSynthetic ? "HIGH" : "LOW",
     }
   };
 }

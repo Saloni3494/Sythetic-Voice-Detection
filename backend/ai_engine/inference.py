@@ -390,51 +390,138 @@ def predict(audio_path, weights_path):
     spoof_probability = max(0.0, min(1.0, spoof_probability))
     is_spoof = bool(spoof_probability >= 0.5)
 
-    # Temporal segment localization (160ms resolution)
+    # Temporal segment localization using trained temporal backbone & utterance projection
     detected_segments = []
-    res_ms = 160
-    seg_logits = None
-    if res_ms in seg_dict:
-        seg_logits = seg_dict[res_ms][0]
-    elif str(res_ms) in seg_dict:
-        seg_logits = seg_dict[str(res_ms)][0]
+    
+    # Only detect synthetic segments if the audio is classified as spoof/synthetic
+    if is_spoof:
+        z = out["features"]  # [B, embed_dim, T]
+        linear_layer = model.utterance_head[2]
+        with torch.no_grad():
+            frame_logits = linear_layer(z.permute(0, 2, 1)).squeeze(-1)[0]
+            frame_probs = torch.sigmoid(frame_logits).detach().cpu().numpy()
+        
+        # 10ms per frame (HOP_MS = 10.0)
+        step_sec = HOP_MS / 1000.0
+        total_dur = len(frame_probs) * step_sec
+        
+        # Smooth over ~150ms window to eliminate isolated acoustic transients
+        window = 15
+        kernel = np.ones(window) / window
+        smoothed = np.convolve(frame_probs, kernel, mode="same")
+        
+        # Audio RMS energy for Voice Activity Detection (VAD)
+        try:
+            y, sr = librosa.load(str(audio_path), sr=TARGET_SR, mono=True)
+            hop = int(round(TARGET_SR * HOP_MS / 1000.0))
+            win = int(round(TARGET_SR * WIN_MS / 1000.0))
+            rms = librosa.feature.rms(y=y, frame_length=win, hop_length=hop)[0]
+            min_len = min(len(smoothed), len(rms))
+            smoothed = smoothed[:min_len]
+            rms = rms[:min_len]
+            audio_dur = len(y) / TARGET_SR
+            total_dur = max(total_dur, audio_dur)
+        except Exception:
+            rms = np.ones_like(smoothed)
 
-    if seg_logits is not None:
-        seg_probs = torch.sigmoid(seg_logits).cpu().numpy()
-        step_sec = res_ms / 1000.0
+        # Distinguish between active speech frames and silence
+        rms_thresh = max(float(np.mean(rms)) * 0.20, 0.005)
+        is_speech = rms > rms_thresh
+        speech_frames = smoothed[is_speech] if np.any(is_speech) else smoothed
 
-        in_segment = False
-        start_time = 0.0
-        current_confs = []
+        # Percentage of active speech frames that exhibit spoof artifacts
+        speech_spoof_pct = float((speech_frames >= 0.45).mean())
 
-        for i, p in enumerate(seg_probs):
-            if p >= 0.5 and not in_segment:
-                in_segment = True
-                start_time = i * step_sec
-                current_confs = [float(p)]
-            elif p >= 0.5 and in_segment:
-                current_confs.append(float(p))
-            elif p < 0.5 and in_segment:
-                in_segment = False
-                end_time = i * step_sec
-                avg_conf = float(np.mean(current_confs)) if current_confs else float(p)
-                detected_segments.append({
-                    "start": round(start_time, 2),
-                    "end": round(end_time, 2),
-                    "confidence": round(avg_conf, 2),
-                    "type": "model_detected"
-                })
-                current_confs = []
+        # Active Human Speech: Voice is actively present, but spoof probability is low
+        active_human = is_speech & (smoothed < 0.40)
 
-        if in_segment:
-            end_time = len(seg_probs) * step_sec
-            avg_conf = float(np.mean(current_confs)) if current_confs else 0.99
-            detected_segments.append({
-                "start": round(start_time, 2),
-                "end": round(end_time, 2),
-                "confidence": round(avg_conf, 2),
-                "type": "model_detected"
-            })
+        # Longest continuous run of active human speech
+        max_human_run = 0
+        curr_run = 0
+        for h in active_human:
+            if h:
+                curr_run += 1
+                if curr_run > max_human_run:
+                    max_human_run = curr_run
+            else:
+                curr_run = 0
+        max_human_sec = max_human_run * step_sec
+        total_human_sec = float(active_human.sum()) * step_sec
+
+        # Determine if this audio is FULL SYNTHETIC or MIXED VOICE (Partial Spoof):
+        # A mixed voice has a genuine human speaker with sustained active human speech.
+        # A full synthetic voice has no genuine human speaker, with virtually all speech being synthetic.
+        is_full_synthetic = (
+            (speech_spoof_pct >= 0.85 and max_human_sec < 0.60 and total_human_sec < 1.00) or
+            (max_human_sec < 0.35 and total_human_sec < 0.50)
+        )
+
+        if is_full_synthetic:
+            # Full synthetic voice: cover entire waveform
+            detected_segments = [{
+                "start": 0.0,
+                "end": round(total_dur, 2),
+                "confidence": round(spoof_probability, 2),
+                "type": "full_synthetic"
+            }]
+        else:
+            # Mixed voice: localize only the synthetic speech segments
+            threshold = 0.45
+            in_segment = False
+            start_time = 0.0
+            current_confs = []
+            raw_segments = []
+
+            for i, p in enumerate(smoothed):
+                if p >= threshold and not in_segment:
+                    in_segment = True
+                    start_time = i * step_sec
+                    current_confs = [float(p)]
+                elif p >= threshold and in_segment:
+                    current_confs.append(float(p))
+                elif p < threshold and in_segment:
+                    in_segment = False
+                    end_time = i * step_sec
+                    if (end_time - start_time) >= 0.12:
+                        avg_conf = float(np.mean(current_confs)) if current_confs else float(p)
+                        raw_segments.append({
+                            "start": round(start_time, 2),
+                            "end": round(end_time, 2),
+                            "confidence": round(avg_conf, 2),
+                            "type": "model_detected"
+                        })
+                    current_confs = []
+
+            if in_segment:
+                end_time = len(smoothed) * step_sec
+                if (end_time - start_time) >= 0.12:
+                    avg_conf = float(np.mean(current_confs)) if current_confs else 0.99
+                    raw_segments.append({
+                        "start": round(start_time, 2),
+                        "end": round(end_time, 2),
+                        "confidence": round(avg_conf, 2),
+                        "type": "model_detected"
+                    })
+
+            # Merge adjacent segments closer than 250ms (speech pauses between syllables/words)
+            if raw_segments:
+                merged = [raw_segments[0]]
+                for next_seg in raw_segments[1:]:
+                    prev_seg = merged[-1]
+                    gap = next_seg["start"] - prev_seg["end"]
+                    if gap <= 0.25:
+                        prev_seg["end"] = next_seg["end"]
+                        prev_seg["confidence"] = round((prev_seg["confidence"] + next_seg["confidence"]) / 2, 2)
+                    else:
+                        merged.append(next_seg)
+                detected_segments = merged
+            else:
+                detected_segments = [{
+                    "start": 0.0,
+                    "end": round(total_dur, 2),
+                    "confidence": round(spoof_probability, 2),
+                    "type": "full_synthetic"
+                }]
 
     return is_spoof, spoof_probability, detected_segments
 

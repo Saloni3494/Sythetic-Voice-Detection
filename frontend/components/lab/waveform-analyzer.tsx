@@ -147,8 +147,9 @@ export function WaveformAnalyzer({ metadata, audioFile, segments = [], onAnalyze
 
             {/* Synthetic Segments Overlay */}
             {segments.map((seg, i) => {
-              const startX = (seg.start / metadata.duration) * 100
-              const width = ((seg.end - seg.start) / metadata.duration) * 100
+              const isFull = seg.type === "full_synthetic" || (seg.start <= 0.05 && seg.end >= metadata.duration * 0.95)
+              const startX = isFull ? 0 : (seg.start / metadata.duration) * 100
+              const width = isFull ? 100 : Math.min(100 - startX, ((seg.end - seg.start) / metadata.duration) * 100)
               return (
                 <g key={`seg-${i}`}>
                   <rect 
