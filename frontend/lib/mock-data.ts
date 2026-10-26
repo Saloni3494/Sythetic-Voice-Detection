@@ -72,11 +72,11 @@ export const mockBackendResponse: ForensicsResponse = {
     label: "SYNTHETIC",
     humanProbability: 7.2,
     syntheticProbability: 92.8,
-    modelName: "SVCNN",
-    featuresUsed: "LOG-MEL / LFCC / CQT",
-    inferenceTime: 0.84,
+    modelName: "PartialSpoofCNN (SVCNN v3)",
+    featuresUsed: "LOG-MEL (80-bank, 16kHz)",
+    inferenceTime: 0.035,
     spectralAnomaly: true,
-    temporalConsistency: "HIGH",
+    temporalConsistency: "ANOMALOUS",
     modelActivation: "HIGH",
   },
   segments: [
@@ -140,21 +140,18 @@ export const mockBackendResponse: ForensicsResponse = {
     },
   ],
   robustness: [
-    { condition: "CLEAN", eer: 1.2, f1: 98.4, accuracy: 98.5, localizationF1: 96.2, rangeEer: 2.1 },
-    { condition: "NOISE", eer: 4.5, f1: 94.1, accuracy: 94.8, localizationF1: 89.5, rangeEer: 6.8 },
-    { condition: "REVERBERATION", eer: 3.8, f1: 95.2, accuracy: 95.9, localizationF1: 91.4, rangeEer: 5.5 },
-    { condition: "CODEC", eer: 2.9, f1: 96.7, accuracy: 97.1, localizationF1: 93.8, rangeEer: 4.2 },
-    { condition: "RESAMPLING", eer: 1.8, f1: 97.9, accuracy: 98.1, localizationF1: 95.1, rangeEer: 3.0 },
+    { condition: "CLEAN", eer: 4.9, f1: 95.2, accuracy: 95.2, localizationF1: 92.4, rangeEer: 4.2 },
+    { condition: "NOISE", eer: 7.2, f1: 91.5, accuracy: 91.8, localizationF1: 86.8, rangeEer: 7.5 },
+    { condition: "REVERBERATION", eer: 6.8, f1: 92.4, accuracy: 92.9, localizationF1: 88.1, rangeEer: 6.9 },
+    { condition: "CODEC (MP3/AAC)", eer: 5.6, f1: 94.1, accuracy: 94.3, localizationF1: 90.2, rangeEer: 5.1 },
+    { condition: "RESAMPLING (8k/16k)", eer: 5.1, f1: 94.8, accuracy: 94.9, localizationF1: 91.6, rangeEer: 4.6 },
   ],
   experiments: [
-    { id: "e1", model: "LOG-MEL CNN", eer: 2.4, rocAuc: 99.1, f1: 97.2, accuracy: 97.5, rangeEer: 3.8, localizationF1: 94.1 },
-    { id: "e2", model: "LFCC CNN", eer: 3.1, rocAuc: 98.7, f1: 96.5, accuracy: 96.8, rangeEer: 4.5, localizationF1: 92.5 },
-    { id: "e3", model: "CQT CNN", eer: 2.8, rocAuc: 98.9, f1: 96.8, accuracy: 97.1, rangeEer: 4.1, localizationF1: 93.2 },
-    { id: "e4", model: "CNN + TCN", eer: 1.9, rocAuc: 99.4, f1: 98.1, accuracy: 98.2, rangeEer: 3.1, localizationF1: 95.8 },
-    { id: "e5", model: "MULTI-VIEW CNN", eer: 1.5, rocAuc: 99.6, f1: 98.5, accuracy: 98.6, rangeEer: 2.5, localizationF1: 96.5 },
-    { id: "e6", model: "MULTI-TASK CNN", eer: 1.4, rocAuc: 99.7, f1: 98.6, accuracy: 98.7, rangeEer: 2.3, localizationF1: 96.8 },
-    { id: "e7", model: "MULTI-RESOLUTION CNN", eer: 1.2, rocAuc: 99.8, f1: 98.8, accuracy: 98.9, rangeEer: 2.1, localizationF1: 97.2 },
-    { id: "e8", model: "ROBUST CNN", eer: 1.1, rocAuc: 99.9, f1: 99.0, accuracy: 99.1, rangeEer: 1.8, localizationF1: 97.5 },
+    { id: "e1", model: "2D-CNN (Log-Mel Baseline)", eer: 9.77, rocAuc: 96.00, f1: 90.10, accuracy: 90.60, rangeEer: 8.4, localizationF1: 82.5 },
+    { id: "e2", model: "2D-CNN + SE Attention", eer: 7.40, rocAuc: 97.60, f1: 92.60, accuracy: 92.60, rangeEer: 6.8, localizationF1: 86.2 },
+    { id: "e3", model: "SE-CNN + TCN (Unweighted Imbalance)", eer: 14.20, rocAuc: 89.10, f1: 51.40, accuracy: 51.40, rangeEer: 12.5, localizationF1: 45.0 },
+    { id: "e4", model: "SE-CNN + Dilated TCN (best.pt Deployed)", eer: 4.90, rocAuc: 98.66, f1: 95.17, accuracy: 95.23, rangeEer: 4.2, localizationF1: 92.4 },
+    { id: "e5", model: "Multi-Feature CNN (Log-Mel + LFCC + CQT)", eer: 3.80, rocAuc: 99.10, f1: 96.40, accuracy: 96.50, rangeEer: 3.4, localizationF1: 94.8 },
   ]
 }
 
@@ -162,19 +159,49 @@ export function mergeAnalysisResponse(apiResult: any, baseMock: ForensicsRespons
   const isSynthetic = Boolean(apiResult.is_ai_generated);
   const spoofPercent = Number(apiResult.spoof_probability) * 100;
   const humanPercent = 100 - spoofPercent;
-  const segments = isSynthetic ? (apiResult.segments || []) : [];
-  
+  const rawSegments = isSynthetic ? (apiResult.segments || []) : [];
+
+  const resolutionScales = [20, 40, 80, 160, 320, 640];
+  const dynamicResolutions: ResolutionResult[] = resolutionScales.map(resMs => {
+    if (!isSynthetic || rawSegments.length === 0) {
+      return { resolutionMs: resMs, totalDetected: 0, segments: [] };
+    }
+    const step = resMs / 1000;
+    const resSegments = rawSegments.map((seg: any, idx: number) => {
+      const qStart = Math.floor(seg.start / step) * step;
+      const qEnd = Math.ceil(seg.end / step) * step;
+      return {
+        id: `res-${resMs}-${idx}`,
+        start: Number(qStart.toFixed(2)),
+        end: Number(qEnd.toFixed(2)),
+        confidence: Number((seg.confidence ? (seg.confidence > 1 ? seg.confidence : seg.confidence * 100) : spoofPercent).toFixed(1)),
+        type: seg.type
+      };
+    });
+    const totalFrames = rawSegments.reduce((acc: number, s: any) => {
+      const dur = Math.max(0, s.end - s.start);
+      return acc + Math.round(dur / step);
+    }, 0);
+
+    return {
+      resolutionMs: resMs,
+      totalDetected: totalFrames,
+      segments: resSegments
+    };
+  });
+
   return {
     ...baseMock,
-    segments: segments,
-    resolutions: isSynthetic 
-      ? baseMock.resolutions 
-      : baseMock.resolutions.map(r => ({ ...r, totalDetected: 0, segments: [] })),
+    segments: rawSegments,
+    resolutions: dynamicResolutions,
     result: {
       ...baseMock.result,
       label: isSynthetic ? "SYNTHETIC" : "HUMAN",
       syntheticProbability: Number(spoofPercent.toFixed(1)),
       humanProbability: Number(humanPercent.toFixed(1)),
+      modelName: "PartialSpoofCNN (SVCNN v3)",
+      featuresUsed: "LOG-MEL (80-bank, 16kHz)",
+      inferenceTime: 0.035,
       spectralAnomaly: isSynthetic,
       temporalConsistency: isSynthetic ? "ANOMALOUS" : "NATURAL",
       modelActivation: isSynthetic ? "HIGH" : "LOW",

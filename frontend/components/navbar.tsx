@@ -2,144 +2,76 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { ShieldAlert, ArrowRight, Activity, Terminal } from "lucide-react"
 
-const navLinks = [
-  { label: "ANALYZE", href: "#about" },
-  { label: "MODEL", href: "#works" },
-  { label: "RESEARCH", href: "#contact" },
-]
-
-export function Navbar() {
+export function Navbar({ onLaunch }: { onLaunch?: () => void }) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50)
+      setIsScrolled(window.scrollY > 30)
     }
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const scrollToSection = (href: string) => {
-    setIsMenuOpen(false)
-    const element = document.querySelector(href)
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" })
-    }
-  }
-
   return (
-    <>
-      <motion.header
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isScrolled ? "bg-background/80 backdrop-blur-md border-b border-border" : ""
-          }`}
-      >
-        <nav className="flex items-center justify-between px-6 py-4 my-0 md:px-12 md:py-5">
-          {/* Logo */}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault()
-              window.scrollTo({ top: 0, behavior: "smooth" })
-            }}
-            className="group flex items-center gap-2"
-          >
-            <span className="font-mono text-xs tracking-widest text-muted-foreground">SYNTHETIC VOICE CNN</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-accent group-hover:scale-150 transition-transform duration-300" />
-          </a>
-
-          {/* Desktop Navigation */}
-          <ul className="hidden md:flex items-center gap-8">
-            {navLinks.map((link, index) => (
-              <li key={link.label}>
-                <button
-                  onClick={() => scrollToSection(link.href)}
-                  className="group relative font-mono text-xs tracking-wider text-muted-foreground hover:text-foreground transition-colors duration-300"
-                >
-                  <span className="text-accent mr-1">0{index + 1}</span>
-                  {link.label.toUpperCase()}
-                  <span className="absolute -bottom-1 left-0 w-0 h-px bg-foreground group-hover:w-full transition-all duration-300" />
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          {/* Status Indicator */}
-          <div className="hidden md:flex items-center gap-3">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
-            </span>
-            <span className="font-mono text-xs tracking-wider text-muted-foreground">SYSTEM ONLINE</span>
+    <motion.header
+      initial={{ y: -80, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? "bg-[#050505]/85 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
+          : "bg-transparent border-b border-transparent"
+      }`}
+    >
+      <nav className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4 md:px-12">
+        {/* Brand Logo & Version Pill */}
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+            <ShieldAlert className="w-4 h-4 text-white" />
           </div>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <span className="font-sans font-semibold tracking-wider text-base text-white">VOXGUARD</span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono tracking-widest bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                v3.2
+              </span>
+            </div>
+            <span className="font-mono text-[9px] tracking-widest text-muted-foreground uppercase hidden sm:inline">
+              PartialSpoof Speech Forensics
+            </span>
+          </div>
+        </div>
 
-          {/* Mobile Menu Button */}
+        {/* Live Engine Telemetry Chip */}
+        <div className="hidden lg:flex items-center gap-3 px-3.5 py-1.5 rounded-full border border-white/10 bg-white/[0.02] backdrop-blur-md font-mono text-[11px] text-white/70">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span className="text-white/90 font-medium">CORE READY</span>
+          </div>
+          <span className="text-white/20">•</span>
+          <span className="text-white/50">CPU Latency: <span className="text-blue-400 font-medium">&lt;35ms</span></span>
+          <span className="text-white/20">•</span>
+          <span className="text-white/50">ROC-AUC: <span className="text-emerald-400 font-medium">98.66%</span></span>
+        </div>
+
+        {/* CTA Launch Button */}
+        <div className="flex items-center gap-4">
           <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden relative w-8 h-8 flex flex-col items-center justify-center gap-1.5"
-            aria-label="Toggle menu"
+            onClick={onLaunch}
+            className="group relative px-5 py-2.5 rounded-full font-sans text-xs font-medium tracking-wide text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 transition-all duration-300 shadow-[0_0_25px_rgba(37,99,235,0.35)] hover:shadow-[0_0_35px_rgba(37,99,235,0.6)] flex items-center gap-2 cursor-pointer"
           >
-            <motion.span
-              animate={isMenuOpen ? { rotate: 45, y: 5 } : { rotate: 0, y: 0 }}
-              className="w-6 h-px bg-foreground origin-center"
-            />
-            <motion.span
-              animate={isMenuOpen ? { opacity: 0, x: -10 } : { opacity: 1, x: 0 }}
-              className="w-6 h-px bg-foreground"
-            />
-            <motion.span
-              animate={isMenuOpen ? { rotate: -45, y: -5 } : { rotate: 0, y: 0 }}
-              className="w-6 h-px bg-foreground origin-center"
-            />
+            <span>Launch Forensics Lab</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
           </button>
-        </nav>
-      </motion.header>
-
-      {/* Mobile Menu Overlay */}
-      <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-40 bg-background/95 backdrop-blur-lg md:hidden"
-          >
-            <nav className="flex flex-col items-center justify-center h-full gap-8">
-              {navLinks.map((link, index) => (
-                <motion.button
-                  key={link.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => scrollToSection(link.href)}
-                  className="group text-4xl font-sans tracking-tight text-foreground"
-                >
-                  <span className="text-accent font-mono text-sm mr-2">0{index + 1}</span>
-                  {link.label}
-                </motion.button>
-              ))}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                className="flex items-center gap-3 mt-8"
-              >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
-                </span>
-                <span className="font-mono text-xs tracking-wider text-muted-foreground">SYSTEM ONLINE</span>
-              </motion.div>
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+        </div>
+      </nav>
+    </motion.header>
   )
 }

@@ -1,0 +1,7 @@
+category,duration_seconds,split,utterance_id,copied_wav
+Human,11.39,dev,LA_D_9623720,D:\Partialspoof_project\long_sample_examples_20261026_200016\Human\LA_D_9623720.wav
+Human,11.13,train,LA_T_5235055,D:\Partialspoof_project\long_sample_examples_20261026_200016\Human\LA_T_5235055.wav
+Full_spoof,7.68,dev,CON_D_0010657,D:\Partialspoof_project\long_sample_examples_20261026_200016\Full_spoof\CON_D_0010657.wav
+Full_spoof,5.73,dev,CON_D_0008282,D:\Partialspoof_project\long_sample_examples_20261026_200016\Full_spoof\CON_D_0008282.wav
+Mixed,21.02,train,CON_T_0010513,D:\Partialspoof_project\long_sample_examples_20261026_200016\Mixed\CON_T_0010513.wav
+Mixed,15.34,dev,CON_D_0016975,D:\Partialspoof_project\long_sample_examples_20261026_200016\Mixed\CON_D_0016975.wav

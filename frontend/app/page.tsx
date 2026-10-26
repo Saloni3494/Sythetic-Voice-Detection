@@ -30,7 +30,7 @@ export default function Home() {
       
       {view === "landing" && (
         <>
-          <Navbar />
+          <Navbar onLaunch={handleLaunch} />
           <main>
             <Hero onLaunch={handleLaunch} />
           </main>
