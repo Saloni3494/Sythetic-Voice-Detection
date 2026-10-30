@@ -34,7 +34,8 @@ export function ForensicsLab({ onReset }: { onReset: () => void }) {
       try {
         const formData = new FormData()
         formData.append("file", audioFile)
-        const response = await fetch("http://localhost:8000/api/analyze-audio", {
+        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "")
+        const response = await fetch(`${baseUrl}/api/analyze-audio`, {
           method: "POST",
           body: formData,
         })
