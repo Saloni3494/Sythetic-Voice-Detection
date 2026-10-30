@@ -1,0 +1,13 @@
+frontend
+Artifacts
+Sample_Voice
+.git
+.github
+*.pyc
+__pycache__
+.venv
+venv
+env
+backend/.venv
+backend/app/uploads/*
+!backend/app/uploads/.gitkeep
